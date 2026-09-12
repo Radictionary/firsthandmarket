@@ -213,8 +213,9 @@ TBD.
 Built as a hackathon project.
 
 - **Joe Cox** — frontend
+- **Taras Pomazan** — frontend
 - **Radin Khosraviani** — robust agent logic
-- **Inigo Dela Vega** — backend + integration
+- **Inigo Dela Vega** — backend, Supabase, initial agent logic, integration
 
 Frontend scaffold via Lovable (TanStack Start template).
 LLM inference: Oxen.ai.
