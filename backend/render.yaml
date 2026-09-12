@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: firsthandmarket-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd agent && uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.5
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: OXEN_API_KEY
+        sync: false
+      - key: OXEN_BASE_URL
+        value: https://hub.oxen.ai/api/ai
+      - key: OXEN_MODEL
+        value: gpt-6-astra

@@ -65,6 +65,10 @@ The full loop runs end-to-end in ~4 seconds against real Supabase data.
 
 ---
 
+## Deploy It
+
+Live-deploy the whole thing in ~15 min: **backend → Railway**, **frontend → Vercel**. Step-by-step in [`DEPLOY.md`](DEPLOY.md).
+
 ## Quick Start
 
 ### Prerequisites
