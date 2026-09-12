@@ -1,5 +1,7 @@
 # FirstHandMarket
 
+[![tests](https://github.com/Radictionary/firsthandmarket/actions/workflows/tests.yml/badge.svg)](https://github.com/Radictionary/firsthandmarket/actions/workflows/tests.yml)
+
 **Ask the world. Get a firsthand answer.**
 
 One matchmaker agent that connects information seekers with verified locals who actually live the place, scene, or moment being asked about.
