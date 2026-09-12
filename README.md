@@ -211,6 +211,10 @@ TBD.
 ## Credits
 
 Built as a hackathon project.
-Backend agent + integration by Inigo Dela Vega.
+
+- **Joe Cox** — frontend
+- **Radin Khosraviani** — robust agent logic
+- **Inigo Dela Vega** — backend + integration
+
 Frontend scaffold via Lovable (TanStack Start template).
 LLM inference: Oxen.ai.
