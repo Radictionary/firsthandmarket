@@ -1,225 +1,127 @@
 # FirstHandMarket
 
-[![tests](https://github.com/Radictionary/firsthandmarket/actions/workflows/tests.yml/badge.svg)](https://github.com/Radictionary/firsthandmarket/actions/workflows/tests.yml)
-
 **Ask the world. Get a firsthand answer.**
 
-One matchmaker agent that connects information seekers with verified locals who actually live the place, scene, or moment being asked about.
+FirstHandMarket turns a real-world information need into a clear request, finds
+one relevant person, and lets that person answer from direct experience.
 
-Not two AI representatives negotiating on each other's behalf — **one central agent, real humans, ground-truth answers.**
+The demo uses two private role agents and one shared request contract:
 
----
+1. The **Requester Agent** clarifies the deliverable, place, access, deadline,
+   restrictions, freshness, and acceptance criteria.
+2. The requester reviews and explicitly approves that contract.
+3. The application applies deterministic filters and ranks eligible providers.
+4. One provider receives an in-app offer notification.
+5. The **Provider Agent** privately explains the offer and can polish facts that
+   the provider supplies.
+6. The provider personally accepts or declines, then submits the answer.
 
-## Monorepo Layout
+The agents do not freely negotiate or talk to one another. The approved contract
+is their shared protocol, and the consequential decisions remain explicit human
+actions.
 
-```
-firsthandmarket/
-├── backend/          Python matchmaker agent + Supabase contract
-│   ├── agent/          FastAPI service + agent loop
-│   ├── supabase/       SQL migrations (schema, seed, RLS, RPC)
-│   ├── docs/           Data contract, curl cheatsheet, agent tool schemas
-│   └── examples/       Match + smoke-test scripts
-└── frontend/         TanStack Start (React + Vite) landing site + dashboards
-    ├── src/routes/     `/`, `/requester`, `/provider`, `/auth`
-    ├── src/components/ AgentLiveDemo, RepresentationForm, AgentExchange, UI
-    └── supabase/       Additional migrations (frontend-side tables)
-```
-
----
-
-## What It Does
-
-1. **Seeker** asks a natural-language question ("How's Manila nightlife on a Tuesday?")
-2. **Central agent** (Oxen `gpt-6-astra`, swappable for any OpenAI-compatible model) parses intent → tags + city + freshness
-3. **Supabase RPC** `match_informants` returns the ranked verified people whose expertise + location fit
-4. Each matched informant is contacted (or, in demo, an in-voice answer is generated) and posted to the `answers` table
-5. Agent **synthesizes** all firsthand answers into a single reply that cites each informant
-
-The full loop runs end-to-end in ~4 seconds against real Supabase data.
-
----
+**Everything is free during the demo. There are no credits, prices, rewards, or
+payment flows.**
 
 ## Architecture
 
-```
-                    ┌───────────────────────┐
-   Seeker  ──ask──▶ │  Central matchmaker   │  ──match──▶  Verified informants
-                    │  agent (backend)      │
-                    │  gpt-6-astra @ Oxen   │  ◀─answer──  (real humans on the ground)
-                    └──────────┬────────────┘
-                               │
-                               ▼
-                    ┌───────────────────────┐
-                    │  Supabase             │  ← single source of truth
-                    │  informants · queries │
-                    │  · answers · RPC      │
-                    └───────────────────────┘
-                               ▲
-                               │
-                    ┌──────────┴────────────┐
-                    │  Frontend             │
-                    │  TanStack + Lovable   │  ← calls backend `/ask`
-                    │  Landing + dashboards │     reads Supabase for history
-                    └───────────────────────┘
-```
+    Requester
+       |
+       v
+    Requester Agent (OpenAI Agents SDK)
+       |
+       v
+    approved request contract
+       |
+       v
+    deterministic Supabase matcher
+       |
+       v
+    in-memory demo offer ----> Provider inbox
+                                  |
+                                  v
+                              Provider Agent
+                                  |
+                                  v
+                         human accept / decline
+                                  |
+                                  v
+                          firsthand answer
 
----
+Both agents use Gemini 3.8 Flash through Oxen's OpenAI-compatible endpoint.
 
-## Deploy It
+## Monorepo
 
-Live-deploy the whole thing in ~15 min: **backend → Railway**, **frontend → Vercel**. Step-by-step in [`DEPLOY.md`](DEPLOY.md).
+- backend/agent — FastAPI service, Agents SDK runtime, matcher adapter, and offer
+  state machine
+- backend/supabase — existing tables, seed data, RLS, and match RPC
+- frontend — TanStack Start / React landing page and role workspaces
 
 ## Quick Start
 
-### Prerequisites
-- A Supabase project (URL + publishable key + secret key)
-- An Oxen API key (or any OpenAI-compatible LLM key)
-- Python 3.10+ and Node 18+
+Prerequisites: Python 3.10+, Node 18+, Supabase credentials, and an Oxen API key.
 
-### 1. Backend
+Backend:
 
-```bash
-cd backend
-cp .env.example .env
-# fill in .env with your Supabase + Oxen (or OpenAI) keys
+    cd backend
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements.txt
+    .venv/bin/uvicorn server:app --app-dir agent --host 127.0.0.1 --port 8000
 
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r agent/requirements.txt
-```
+Frontend:
 
-Run the SQL files in your Supabase SQL Editor, in order:
-1. `supabase/01_schema.sql`
-2. `supabase/02_seed.sql`
-3. `supabase/02b_more_seed.sql`   *(15 informants across 12+ cities)*
-4. `supabase/03_rls.sql`
-5. `supabase/04_match_function.sql`
-6. `supabase/05_frontend_min.sql`  *(one table the frontend homepage needs)*
+    cd frontend
+    npm install
+    npm run dev -- --host 127.0.0.1 --port 3000
 
-Smoke test the DB:
-```bash
-source .env && ./examples/test_pipeline.sh
-```
+Local environment files are ignored by Git:
 
-Run the agent test suite:
-```bash
-python agent/test_agent.py
-```
+- backend/.env — OXEN_API_KEY, OXEN_BASE_URL, OXEN_MODEL, SUPABASE_URL,
+  SUPABASE_ANON_KEY, and optional server-only SUPABASE_SERVICE_ROLE_KEY
+- frontend/.env — public Supabase configuration and VITE_AGENT_URL
 
-Start the FastAPI service:
-```bash
-cd agent
-../.venv/bin/uvicorn server:app --reload --host 0.0.0.0 --port 8000
-```
+Never put the Supabase service-role key in the frontend.
 
-Docs at http://localhost:8000/docs
-
-### 2. Frontend
-
-```bash
-cd frontend
-cp .env.example .env
-# fill in the same Supabase project + point VITE_AGENT_URL at your backend
-
-npm install
-npm run dev
-```
-
-Open http://localhost:8080.
-
-- **`/`** — landing page + live agent demo
-- **`/requester`** — dashboard for people asking questions
-- **`/provider`** — dashboard for informants (pick a persona, answer matched questions)
-
----
-
-## The Stack
-
-| Layer | Tech |
-|---|---|
-| Frontend | TanStack Start + Vite + React + Tailwind + shadcn/ui (Lovable-generated) |
-| Backend agent | Python + FastAPI + `requests` (no SDK dependency) |
-| LLM | Oxen `gpt-6-astra` (OpenAI-compatible; also works with OpenAI, Groq, etc.) |
-| Database | Supabase (Postgres) + PostgREST + RLS + one RPC |
-| Auth | Supabase Auth (frontend), anon key for demo |
-
----
-
-## Data Model
-
-Three core tables (see `backend/docs/CONTRACT.md`):
-
-- **`informants`** — verified people with `location_city`, `expertise_tags[]`, `trust_score`, `available`
-- **`queries`** — seeker questions with `topic_tags[]`, `location_city`, `freshness`, `status`
-- **`answers`** — informant responses linked to a query + informant
-
-One RPC: **`match_informants(topic_tags, city, country, limit)`** → ranked informants.
-
----
-
-## Endpoints (Backend)
+## Agent API
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | Ping + model info |
-| POST | `/ask` | Full agent flow: intent → log → match → simulate answers → synthesize |
-| POST | `/rpc/match` | Fast Supabase lookup, no LLM |
-| POST | `/queries` | Direct query insert (no agent) |
-| GET | `/queries/{id}/answers` | Read answers for a query |
+| GET | /health | Runtime and model status |
+| POST | /agent/requester/turn | Refine a contract or match after approval |
+| GET | /providers/{provider_id}/offers | Poll provider notifications |
+| GET | /offers/{offer_id} | Read current offer status |
+| POST | /offers/{offer_id}/respond | Explicit provider accept or decline |
+| POST | /agent/provider/turn | Private provider-agent conversation |
+| POST | /offers/{offer_id}/answer | Submit an answer after acceptance |
+| GET | /queries/{query_id}/answers | Poll requester answers |
+| GET | /integrations/mcp | Honest MCP connector capability catalog |
 
-See `backend/docs/CURL_CHEATSHEET.md` for copy-paste requests.
+## Current Demo Boundaries
 
----
+- Offer state is in memory and resets when FastAPI restarts.
+- The provider picker is a demo replacement for authentication.
+- Gmail, Google Calendar, and Google Drive connection controls are visible, but
+  no MCP OAuth transport is configured yet.
+- Existing Supabase RLS is demo-permissive and must be tightened before launch.
+- No billing or compensation system exists in this demo.
 
-## Configuration
+## Tests
 
-All secrets go in `.env` files at each subproject's root. Never commit these — `.gitignore` excludes them.
+    PYTHONPATH=backend/agent backend/.venv/bin/python -m unittest discover \
+      -s backend/agent -p 'test_*.py' -v
 
-- `backend/.env` — Supabase URL + keys, Oxen (or OpenAI) key + model
-- `frontend/.env` — same Supabase URL/publishable key, plus `VITE_AGENT_URL` pointing at the backend
+    cd frontend
+    npm run build
+    npx eslint src/lib/agent.ts src/components/RequesterAgent.tsx \
+      src/components/AgentLiveDemo.tsx src/routes/requester.tsx \
+      src/routes/provider.tsx src/routes/index.tsx
 
-Both `.env.example` files are templates.
+## Project Team
 
----
+- Joe Cox — frontend
+- Taras Pomazan — frontend
+- Radin Khosraviani — agent architecture and implementation
+- Inigo Dela Vega — backend, Supabase, initial agent logic, and integration
 
-## Security Notes
-
-- Row Level Security is enabled but **demo-permissive** (`insert with check (true)`). Tighten before production.
-- The publishable key is safe in the browser; the secret key is server-only.
-- Rotate all keys before making the project public if any were pasted anywhere.
-
----
-
-## What Makes This Different
-
-- **Not search.** Search asks *what words match this*. FirstHandMarket asks *who lives this*.
-- **Not two agents.** One central matchmaker. All the intelligence at the routing layer; the humans do the answering.
-- **Not fake.** Trust score, verification flags, and location claims are first-class fields — the whole product depends on this being real.
-
----
-
-## Contributing
-
-- Backend agent: edit `backend/agent/agent.py`. Test with `python backend/agent/test_agent.py`.
-- Frontend: edit `frontend/src/`. Vite hot-reloads on save.
-- Schema: add a new SQL file under `backend/supabase/` and run it in Supabase SQL Editor.
-
----
-
-## License
-
-TBD.
-
----
-
-## Credits
-
-Built as a hackathon project.
-
-- **Joe Cox** — frontend
-- **Taras Pomazan** — frontend
-- **Radin Khosraviani** — robust agent logic
-- **Inigo Dela Vega** — backend, Supabase, initial agent logic, integration
-
-Frontend scaffold via Lovable (TanStack Start template).
-LLM inference: Oxen.ai.
+Frontend scaffold via Lovable. Model inference via Oxen.

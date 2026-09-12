@@ -19,7 +19,7 @@ export async function chat(messages: ChatMessage[]): Promise<string> {
   });
 
   if (response.status === 429) throw new Error("The agent is busy. Try again shortly.");
-  if (response.status === 402) throw new Error("AI credits are exhausted.");
+  if (response.status === 402) throw new Error("The AI provider quota is exhausted.");
   if (!response.ok) {
     const detail = await response.text();
     console.error("[ai] gateway error", response.status, detail);

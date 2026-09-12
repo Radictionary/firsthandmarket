@@ -11,13 +11,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "One matchmaker agent. A verified network of locals. Ask about any place, any topic — get answered by someone who actually lives it.",
+          "Two private agents, one approved request contract, and a verified network of people who can answer from firsthand experience.",
       },
       { property: "og:title", content: "FirsthandMarket — Ask the world. Get a firsthand answer." },
       {
         property: "og:description",
         content:
-          "One agent, real people, ground-truth answers. FirstHandMarket connects information seekers with verified locals.",
+          "Requester and Provider Agents coordinate through an approved contract while the humans stay in control.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -34,18 +34,55 @@ const brokenSources = [
 ];
 
 const howItWorks = [
-  ["01", "You ask", "Type a question about a place, a scene, or a moment. Natural language. No filters."],
-  ["02", "Our agent routes it", "One central matchmaker parses intent, location, and freshness. It picks the right verified people."],
-  ["03", "They answer, firsthand", "Real locals reply in their own voice. The agent synthesizes their answers and cites who said what."],
+  [
+    "01",
+    "Requester Agent clarifies",
+    "Talk through the deliverable, place, access, deadline, and acceptance criteria.",
+  ],
+  [
+    "02",
+    "You approve",
+    "Review the structured contract. Matching stays blocked until you explicitly approve it.",
+  ],
+  [
+    "03",
+    "System matches",
+    "Deterministic filters rank eligible providers, then one receives a private offer notification.",
+  ],
+  [
+    "04",
+    "Provider decides",
+    "Their Provider Agent explains the job, but the human accepts or declines and supplies the answer.",
+  ],
 ];
 
 const informantSnapshot = [
-  { name: "Maya Reyes", city: "Manila", tags: ["hackathons", "manila-nightlife", "ai"], trust: 0.92 },
-  { name: "Kenji Tanaka", city: "Tokyo", tags: ["tokyo-food", "ramen", "tech"], trust: 0.90 },
-  { name: "Zara Ahmed", city: "Cairo", tags: ["healthcare", "safety", "women-solo-travel"], trust: 0.93 },
-  { name: "Diego Ferreira", city: "São Paulo", tags: ["music", "sao-paulo-nightlife", "safety"], trust: 0.86 },
+  {
+    name: "Maya Reyes",
+    city: "Manila",
+    tags: ["hackathons", "manila-nightlife", "ai"],
+    trust: 0.92,
+  },
+  { name: "Kenji Tanaka", city: "Tokyo", tags: ["tokyo-food", "ramen", "tech"], trust: 0.9 },
+  {
+    name: "Zara Ahmed",
+    city: "Cairo",
+    tags: ["healthcare", "safety", "women-solo-travel"],
+    trust: 0.93,
+  },
+  {
+    name: "Diego Ferreira",
+    city: "São Paulo",
+    tags: ["music", "sao-paulo-nightlife", "safety"],
+    trust: 0.86,
+  },
   { name: "Amara Okafor", city: "Lagos", tags: ["startups", "lagos-food", "safety"], trust: 0.87 },
-  { name: "Camille Laurent", city: "Paris", tags: ["culture", "paris-food", "journalism"], trust: 0.88 },
+  {
+    name: "Camille Laurent",
+    city: "Paris",
+    tags: ["culture", "paris-food", "journalism"],
+    trust: 0.88,
+  },
 ];
 
 const verification = [
@@ -83,20 +120,22 @@ function Index() {
             </div>
           </nav>
 
-          <p className="eyebrow mt-20 md:mt-28">One agent · Real people · Ground truth</p>
+          <p className="eyebrow mt-20 md:mt-28">
+            Two private agents · One shared contract · Real people
+          </p>
           <h1 className="display mt-5 text-[clamp(2.75rem,8vw,6rem)]">
             Ask the world.
             <br />
             Get a firsthand answer.
           </h1>
           <p className="mt-7 max-w-xl text-lg leading-relaxed text-muted-foreground">
-            The internet gives you old blog posts and Reddit guesses. FirstHandMarket
-            connects you with verified people who actually live the place, the scene,
-            or the moment you're asking about — routed by one central matchmaker agent.
+            The internet gives you old blog posts and Reddit guesses. FirstHandMarket connects you
+            with verified people who actually live the place, the scene, or the moment you're asking
+            about.
           </p>
           <p className="mt-6 max-w-xl text-lg leading-relaxed">
-            Not two AI representatives negotiating.{" "}
-            <em className="display text-2xl text-primary">One agent. Real humans.</em>
+            Your Requester Agent defines the need. Their Provider Agent helps them respond.{" "}
+            <em className="display text-2xl text-primary">One contract. Humans decide.</em>
           </p>
 
           <div className="mt-10 flex flex-wrap gap-3">
@@ -119,8 +158,7 @@ function Index() {
       {/* Problem */}
       <Section eyebrow="The problem">
         <h2 className="display max-w-3xl text-4xl md:text-5xl">
-          When you have a real question about a real place, the internet doesn't have a
-          real answer.
+          When you have a real question about a real place, the internet doesn't have a real answer.
         </h2>
         <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2">
           {brokenSources.map(([label, sub]) => (
@@ -133,57 +171,49 @@ function Index() {
           ))}
         </div>
         <p className="mt-8 max-w-2xl text-[17px] leading-relaxed text-muted-foreground">
-          Meanwhile — right now — someone in the exact place you're asking about is
-          living the answer. FirstHandMarket is how you reach them.
+          Meanwhile — right now — someone in the exact place you're asking about is living the
+          answer. FirstHandMarket is how you reach them.
         </p>
       </Section>
 
       {/* How it works */}
       <Section id="how" eyebrow="How it works">
         <h2 className="display max-w-3xl text-4xl md:text-5xl">
-          One agent handles every request. It's the whole platform.
+          Two role agents, without a game of telephone.
         </h2>
         <p className="mt-5 max-w-2xl text-[17px] leading-relaxed text-muted-foreground">
-          Not per-user AI representatives. Not agent-to-agent negotiation. A single
-          matchmaker that reads your question, finds the right verified people, and
-          returns their answers — with citations.
+          The agents do not freely negotiate or message one another. They work from the same
+          approved request contract, while matching and user decisions stay deterministic and
+          auditable.
         </p>
-        <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-3">
+        <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-2 lg:grid-cols-4">
           {howItWorks.map(([step, title, body]) => (
             <div key={step} className="bg-card p-7">
               <p className="font-mono text-[10px] tracking-[0.2em] text-primary uppercase">
                 Step {step}
               </p>
               <p className="display mt-3 text-2xl">{title}</p>
-              <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
-                {body}
-              </p>
+              <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">{body}</p>
             </div>
           ))}
         </div>
 
         {/* Flow diagram */}
         <div className="mt-10 rounded-xl border border-border bg-card p-8 font-mono text-sm shadow-[var(--shadow-card)]">
-          <pre className="leading-7 text-muted-foreground">{`  Seeker (you)
-        │
-        ▼
-  ┌───────────────────────┐
-  │  FirstHandMarket      │  ← one central matchmaker agent
-  │  matchmaker agent     │     (not one per user)
-  └───────────────────────┘
-        │
-        ├─▶  Verified informant in Manila
-        ├─▶  Verified informant in Berlin
-        └─▶  Verified informant in Bangalore
-                      │
-                      ▼
-              Firsthand answers
-                      │
-                      ▼
-              Synthesized reply → back to you`}</pre>
+          <pre className="overflow-x-auto leading-7 text-muted-foreground">{`  Requester
+      │ private conversation
+      ▼
+  Requester Agent ──▶ approved request contract
+                              │
+                              ▼
+                    deterministic matcher
+                              │ offer notification
+                              ▼
+  Firsthand answer ◀── Provider human ◀── Provider Agent
+                           │
+                           └── accepts or declines`}</pre>
           <p className="mt-6 border-t border-border pt-5 font-sans text-[15px] leading-relaxed text-foreground/90">
-            One agent, many people. The humans on the network do the answering. The
-            agent just connects the dots.
+            Agents clarify and coach. The application matches. Humans approve, accept, and answer.
           </p>
         </div>
       </Section>
@@ -199,17 +229,14 @@ function Index() {
           Verified people who actually live the context.
         </h2>
         <p className="mt-5 max-w-2xl text-[17px] leading-relaxed text-muted-foreground">
-          Not tourists. Not one-time visitors. Locals with expertise, on the ground,
-          available now.
+          Not tourists. Not one-time visitors. Locals with expertise, on the ground, available now.
         </p>
         <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
           {informantSnapshot.map((i) => (
             <div key={i.name} className="bg-card p-5">
               <div className="flex items-center justify-between">
                 <p className="text-[15px] font-medium">{i.name}</p>
-                <span className="font-mono text-[10px] text-primary">
-                  trust {i.trust}
-                </span>
+                <span className="font-mono text-[10px] text-primary">trust {i.trust}</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">📍 {i.city}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
@@ -228,13 +255,11 @@ function Index() {
       <Section id="verification" eyebrow="How we know they're real">
         <div className="grid gap-12 md:grid-cols-2">
           <div>
-            <h2 className="display text-4xl md:text-5xl">
-              The whole product is trust.
-            </h2>
+            <h2 className="display text-4xl md:text-5xl">The whole product is trust.</h2>
             <p className="mt-6 text-[17px] leading-relaxed text-muted-foreground">
-              Anyone can build a Q&A site. What makes FirstHandMarket work is the
-              verification layer: informants aren't anonymous, and we can prove they're
-              actually where they claim to be.
+              Anyone can build a Q&A site. What makes FirstHandMarket work is the verification
+              layer: informants aren't anonymous, and we can prove they're actually where they claim
+              to be.
             </p>
           </div>
           <ul className="space-y-px overflow-hidden rounded-xl border border-border bg-border">
@@ -257,9 +282,7 @@ function Index() {
             <p className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
               Search asks
             </p>
-            <p className="display mt-4 text-3xl text-muted-foreground">
-              What words match this?
-            </p>
+            <p className="display mt-4 text-3xl text-muted-foreground">What words match this?</p>
           </div>
           <div className="rounded-xl border border-primary/40 bg-card p-8">
             <p className="font-mono text-[10px] tracking-[0.18em] text-primary uppercase">
@@ -273,9 +296,8 @@ function Index() {
             "Is Khlong Toei market safe for a solo woman traveler at 9pm on a Tuesday?"
           </p>
           <p className="mt-5 text-[17px] leading-relaxed text-muted-foreground">
-            Search returns blog posts. Our agent finds someone in Khlong Toei tonight,
-            asks them, and reports back. That's the shape of every question the
-            platform is built for.
+            Search returns blog posts. Our agent finds someone in Khlong Toei tonight, asks them,
+            and reports back. That's the shape of every question the platform is built for.
           </p>
         </div>
       </Section>
@@ -283,11 +305,11 @@ function Index() {
       {/* Join as informant */}
       <Section id="join" eyebrow="Join as an informant">
         <h2 className="display max-w-3xl text-4xl md:text-5xl">
-          You know your city. Get paid for that.
+          You know your city. Share what is happening now.
         </h2>
         <p className="mt-5 max-w-2xl text-[17px] leading-relaxed text-muted-foreground">
-          Tell us where you live, what you know first-hand, and what you're happy to
-          answer about. We'll route real questions from seekers to you — you answer in
+          Tell us where you live, what you know first-hand, and what you're happy to answer about.
+          During the demo, every request is free. You choose which requests to accept and answer in
           your own voice, on your own time.
         </p>
         <div className="mt-10">
@@ -303,11 +325,11 @@ function Index() {
             Every question deserves a firsthand answer.
           </h2>
           <p className="mx-auto mt-7 max-w-lg text-[17px] leading-relaxed text-muted-foreground">
-            One agent. A verified network. Real answers from real people who are
-            actually there.
+            Two private agents. One approved contract. Real answers from people who are actually
+            there.
           </p>
           <p className="mt-8 font-mono text-xs tracking-[0.24em] text-primary uppercase">
-            Not search · Not scraping · Not two agents · Ground truth
+            Not search · Not scraping · Human-approved ground truth
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
             <a

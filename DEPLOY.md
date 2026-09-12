@@ -25,7 +25,7 @@ Click the deployed service → **Variables** tab → **Raw Editor** → paste:
 ```
 SUPABASE_URL=https://hnmynawolirlvsvbkdod.supabase.co
 SUPABASE_ANON_KEY=sb_publishable_...
-OXEN_API_KEY=SFMyNTY...your-key...
+OXEN_API_KEY=replace-with-your-oxen-key
 OXEN_BASE_URL=https://hub.oxen.ai/api/ai
 OXEN_MODEL=gpt-6-astra
 ```

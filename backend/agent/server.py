@@ -1,169 +1,264 @@
-"""FirstHandMarket — HTTP wrapper around the agent.
+"""FastAPI integration for the two FirstHandMarket role agents."""
 
-Run:
-    uvicorn agent.server:app --reload --host 0.0.0.0 --port 8000
+from __future__ import annotations
 
-Endpoints:
-    GET  /health              → {"ok": true, "model": "..."}
-    POST /ask                 → {"question": "..."}          → agent runs, returns full trace
-    POST /queries             → {"question","topic_tags",...} → bypass agent, direct DB write
-    GET  /informants          → list all verified informants
-    POST /rpc/match           → {"topic_tags":[...],"city":"..."} → direct match, no LLM
-
-The frontend can call /ask for the full agent experience, or the raw
-endpoints for lighter interactions.
-"""
-import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
-from agent import (  # noqa: E402
-    chat, extract_json, expand_tags,
-    INTENT_PROMPT, ANSWER_PROMPT, SYNTH_PROMPT, MODEL, BASE_URL,
-)
-from db import match_informants, post_query, post_answer, get_answers_for_query  # noqa: E402
+from agents_runtime import FirstHandAgents, ProviderContext, RequesterContext  # noqa: E402
+from demo_data import DEMO_PROVIDERS, make_demo_answer, match_demo_providers  # noqa: E402
+from db import get_answers_for_query, match_informants, post_answer, post_query  # noqa: E402
+from offers import OfferNotFoundError, offer_store  # noqa: E402
 
-app = FastAPI(title="FirstHandMarket Agent", version="0.1.0")
-
-# CORS — open for hackathon demo. Tighten to your frontend origin in prod.
+app = FastAPI(title="FirstHandMarket Agents", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        origin.strip()
+        for origin in os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+        if origin.strip()
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-class AskBody(BaseModel):
-    question: str
-    seeker_name: Optional[str] = None
+_agents: FirstHandAgents | None = None
 
 
-class MatchBody(BaseModel):
-    topic_tags: list[str]
-    city: Optional[str] = None
-    country: Optional[str] = None
-    limit: int = 3
+def agents() -> FirstHandAgents:
+    global _agents
+    if _agents is None:
+        _agents = FirstHandAgents.from_env()
+    return _agents
 
 
-class QueryBody(BaseModel):
-    question: str
-    topic_tags: list[str] = []
-    seeker_name: Optional[str] = None
-    location_city: Optional[str] = None
-    location_country: Optional[str] = None
-    freshness: str = "now"
+def match_available_providers(**criteria):
+    """Prefer the explicit UCLA fixture, then fall back to database people."""
+
+    demo_matches = match_demo_providers(**criteria)
+    if demo_matches:
+        return demo_matches
+
+    try:
+        matches = match_informants(**criteria)
+    except Exception:
+        matches = []
+    return matches
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4_000)
+
+
+class RequesterTurnBody(BaseModel):
+    requester_name: str = Field(min_length=1, max_length=120)
+    message: str = Field(min_length=1, max_length=4_000)
+    turn_id: str = Field(min_length=1, max_length=160)
+    history: list[ChatMessage] = Field(default_factory=list, max_length=12)
+    draft: dict[str, Any] | None = None
+    ready_for_approval: bool = False
+    approved: bool = False
+
+
+class ProviderTurnBody(BaseModel):
+    provider_id: str
+    offer_id: str
+    message: str = Field(min_length=1, max_length=4_000)
+    history: list[ChatMessage] = Field(default_factory=list, max_length=12)
+    response_draft: str = Field(default="", max_length=8_000)
+
+
+class OfferDecisionBody(BaseModel):
+    provider_id: str
+    decision: Literal["accept", "decline"]
+
+
+class AnswerBody(BaseModel):
+    provider_id: str
+    content: str = Field(min_length=1, max_length=8_000)
+    media_url: str | None = None
 
 
 @app.get("/health")
 def health():
-    return {"ok": True, "model": MODEL, "endpoint": BASE_URL}
-
-
-@app.post("/ask")
-def ask(body: AskBody):
-    """Full agent flow: intent → log query → match → synthesize."""
-    try:
-        raw = chat([
-            {"role": "system", "content": INTENT_PROMPT},
-            {"role": "user", "content": body.question},
-        ])
-        intent = extract_json(raw)
-    except Exception as e:
-        raise HTTPException(500, f"intent extraction failed: {e}")
-
-    logged = post_query(
-        question=body.question,
-        topic_tags=intent.get("topic_tags", []),
-        seeker_name=body.seeker_name,
-        location_city=intent.get("city"),
-        location_country=intent.get("country"),
-        freshness=intent.get("freshness", "now"),
-    )
-
-    tags = expand_tags(intent.get("topic_tags", []), intent.get("city"))
-    matches = match_informants(
-        topic_tags=tags, city=intent.get("city"),
-        country=intent.get("country"), limit=3,
-    )
-    if not matches and intent.get("city"):
-        matches = match_informants(topic_tags=tags, limit=3)
-
-    answers = []
-    reply = None
-    if matches:
-        for m in matches:
-            try:
-                voice = chat([
-                    {"role": "system", "content": ANSWER_PROMPT},
-                    {"role": "user", "content":
-                        f"You are {m['display_name']} from {m['location_city']}, {m['location_country']}.\n"
-                        f"Bio: {m['bio']}\n"
-                        f"Expertise: {', '.join(m['expertise_tags'])}\n\n"
-                        f"The seeker asked: {body.question}"},
-                ]).strip()
-            except Exception as e:
-                voice = f"(answer generation failed: {e})"
-            try:
-                post_answer(logged["id"], m["id"], voice)
-            except Exception:
-                pass
-            answers.append({
-                "informant_id": m["id"],
-                "display_name": m["display_name"],
-                "city": m["location_city"],
-                "avatar_url": m.get("avatar_url"),
-                "trust_score": m.get("trust_score"),
-                "answer": voice,
-            })
-
-        try:
-            reply = chat([
-                {"role": "system", "content": SYNTH_PROMPT},
-                {"role": "user", "content":
-                    f"Seeker asked: {body.question}\n\nAnswers from informants:\n{json.dumps(answers)}"},
-            ]).strip()
-        except Exception as e:
-            reply = f"(synthesis failed: {e})"
-    else:
-        reply = "No matching informants yet. Try broadening your topic or dropping the location."
-
+    configured = bool(os.environ.get("OXEN_API_KEY") or os.environ.get("OPENAI_API_KEY"))
     return {
-        "query_id": logged["id"],
-        "intent": intent,
-        "matches": matches,
-        "answers": answers,
-        "reply": reply,
+        "ok": True,
+        "agents_sdk": True,
+        "model": os.environ.get("OXEN_MODEL", "gemini-3-8-flash"),
+        "endpoint": os.environ.get("OXEN_BASE_URL", "https://hub.oxen.ai/api/ai"),
+        "model_configured": configured,
+        "offer_store": "memory-demo",
     }
 
 
-@app.post("/rpc/match")
-def match(body: MatchBody):
-    """Direct Supabase match, no LLM. For lightweight lookups."""
-    tags = expand_tags(body.topic_tags, body.city)
-    matches = match_informants(
-        topic_tags=tags, city=body.city, country=body.country, limit=body.limit,
+@app.post("/agent/requester/turn")
+async def requester_turn(body: RequesterTurnBody):
+    """Refine a request; after explicit approval, match and notify one provider."""
+
+    context = RequesterContext(
+        requester_name=body.requester_name.strip(),
+        approved=body.approved,
+        idempotency_key=f"requester:{body.requester_name.strip()}:{body.turn_id}",
+        match_function=match_available_providers,
+        post_query_function=post_query,
+        offers=offer_store,
+        draft=body.draft,
+        ready_for_approval=body.ready_for_approval,
     )
-    if not matches and body.city:
-        matches = match_informants(topic_tags=tags, limit=body.limit)
-    return {"matches": matches}
+    try:
+        reply = await agents().requester_turn(
+            message=body.message,
+            history=[item.model_dump() for item in body.history],
+            context=context,
+        )
+    except Exception as error:
+        raise HTTPException(502, f"Requester agent failed: {error}") from error
+
+    return {
+        "reply": reply,
+        "draft": context.draft,
+        "ready_for_approval": context.ready_for_approval,
+        "approved": body.approved,
+        "matches": context.matches,
+        "selected_provider": context.selected_provider,
+        "offer": context.offer,
+        "query_id": context.query_id,
+    }
 
 
-@app.post("/queries")
-def create_query(body: QueryBody):
-    """Direct query insert. No LLM, no matching. Use when the frontend
-    already knows the tags."""
-    return post_query(**body.model_dump())
+@app.get("/providers/demo")
+def demo_providers():
+    """Expose fake demo identities so their provider workspace can receive offers."""
+
+    return {"providers": DEMO_PROVIDERS}
+
+
+@app.get("/providers/{provider_id}/offers")
+def provider_offers(provider_id: str):
+    """Polling endpoint that powers the provider's in-app notifications."""
+
+    return {"offers": offer_store.list_for_provider(provider_id)}
+
+
+@app.get("/offers/{offer_id}")
+def get_offer(offer_id: str):
+    """Return current demo status so both role workspaces can stay in sync."""
+
+    try:
+        return offer_store.get(offer_id)
+    except OfferNotFoundError as error:
+        raise HTTPException(404, str(error)) from error
+
+
+@app.post("/offers/{offer_id}/respond")
+def respond_to_offer(offer_id: str, body: OfferDecisionBody):
+    """Explicit provider decision; this action is never exposed as an agent tool."""
+
+    try:
+        return offer_store.respond(
+            provider_id=body.provider_id,
+            offer_id=offer_id,
+            decision=body.decision,
+        )
+    except OfferNotFoundError as error:
+        raise HTTPException(404, str(error)) from error
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
+
+
+@app.post("/agent/provider/turn")
+async def provider_turn(body: ProviderTurnBody):
+    """Let the provider privately discuss an offer with their own agent."""
+
+    try:
+        offer = offer_store.get(body.offer_id)
+    except OfferNotFoundError as error:
+        raise HTTPException(404, str(error)) from error
+    if offer["provider_id"] != body.provider_id:
+        raise HTTPException(403, "Offer does not belong to this provider")
+
+    context = ProviderContext(
+        provider=offer["provider"],
+        offer=offer,
+        response_draft=body.response_draft,
+    )
+    try:
+        reply = await agents().provider_turn(
+            message=body.message,
+            history=[item.model_dump() for item in body.history],
+            context=context,
+        )
+    except Exception as error:
+        raise HTTPException(502, f"Provider agent failed: {error}") from error
+    return {"reply": reply, "response_draft": context.response_draft, "offer": offer}
+
+
+@app.post("/offers/{offer_id}/answer")
+def answer_offer(offer_id: str, body: AnswerBody):
+    """Submit the provider's real answer after they accepted the offer."""
+
+    try:
+        offer = offer_store.get(offer_id)
+    except OfferNotFoundError as error:
+        raise HTTPException(404, str(error)) from error
+    if offer["provider_id"] != body.provider_id:
+        raise HTTPException(403, "Offer does not belong to this provider")
+    if offer["status"] != "accepted":
+        raise HTTPException(409, "Accept the offer before submitting an answer")
+    if offer["provider"].get("is_demo"):
+        answer = make_demo_answer(offer["contract"], offer["provider"])
+        answer["content"] = body.content.strip()
+        answer["media_url"] = body.media_url
+        completed_offer = offer_store.complete_demo(offer_id=offer_id, answer=answer)
+        answer = completed_offer["demo_answer"]
+    else:
+        try:
+            answer = post_answer(
+                offer["query_id"],
+                body.provider_id,
+                body.content.strip(),
+                body.media_url,
+            )
+        except Exception as error:
+            raise HTTPException(502, f"Answer could not be stored: {error}") from error
+        completed_offer = offer_store.complete(
+            provider_id=body.provider_id,
+            offer_id=offer_id,
+        )
+    return {"answer": answer, "offer": completed_offer}
 
 
 @app.get("/queries/{query_id}/answers")
 def answers_for_query(query_id: str):
-    return {"answers": get_answers_for_query(query_id)}
+    demo_answers = offer_store.demo_answers_for_query(query_id)
+    try:
+        return {"answers": demo_answers + get_answers_for_query(query_id)}
+    except Exception as error:
+        if demo_answers:
+            return {"answers": demo_answers}
+        raise HTTPException(502, f"Answers could not be loaded: {error}") from error
+
+
+@app.get("/integrations/mcp")
+def mcp_connector_catalog():
+    """Advertise the provider connection surface without claiming OAuth is live."""
+
+    return {
+        "enabled": False,
+        "message": "MCP connection UI is ready; OAuth transports are not configured for this demo.",
+        "connectors": [
+            {"id": "gmail", "name": "Gmail", "status": "not_configured"},
+            {"id": "google-calendar", "name": "Google Calendar", "status": "not_configured"},
+            {"id": "google-drive", "name": "Google Drive", "status": "not_configured"},
+        ],
+    }

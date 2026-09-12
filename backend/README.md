@@ -1,6 +1,6 @@
 # FirstHandMarket — Backend
 
-Supabase data layer + minimal Python matchmaker agent that plugs into it.
+Supabase data layer plus two private Agents SDK role agents backed by Oxen.
 
 The **frontend** lives in a separate folder (`~/Downloads/FirsthandMarket`) and connects to the same Supabase project via the contract in [`docs/CONTRACT.md`](docs/CONTRACT.md).
 
@@ -35,14 +35,14 @@ source .venv/bin/activate
 pip install -r agent/requirements.txt
 ```
 
-### 5. Run the agent
+### 5. Run the agent API
 ```bash
-python agent/agent.py "What is a global hackathon like on day 2?"
+.venv/bin/uvicorn server:app --app-dir agent --host 127.0.0.1 --port 8000
 ```
 
-### 6. Run the test suite
+### 6. Run the architecture tests
 ```bash
-python agent/test_agent.py
+PYTHONPATH=agent .venv/bin/python -m unittest discover -s agent -p 'test_*.py' -v
 ```
 
 ---
@@ -57,5 +57,5 @@ firstHandMarketBackend/
 ├── supabase/               ← SQL migrations
 ├── docs/                   ← contracts + cheatsheets
 ├── examples/               ← curl scripts
-└── agent/                  ← Python matchmaker agent
+└── agent/                  ← FastAPI + Requester and Provider Agents
 ```
