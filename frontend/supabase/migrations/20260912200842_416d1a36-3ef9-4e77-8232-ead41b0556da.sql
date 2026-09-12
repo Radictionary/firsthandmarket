@@ -1,0 +1,1 @@
+CREATE POLICY "Members clear own intake" ON public.intake_messages FOR DELETE TO authenticated USING (auth.uid() = user_id);
